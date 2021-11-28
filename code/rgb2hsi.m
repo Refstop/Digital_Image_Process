@@ -1,4 +1,4 @@
-function hsi = rgb2hsi(rgb)
+function [hsi, H, S, I] = rgb2hsi(rgb)
 R = rgb(:,:,1);
 G = rgb(:,:,2);
 B = rgb(:,:,3);
@@ -9,9 +9,7 @@ value(isnan(value)) = 0;
 theta = acos(value);
 H = theta.*(B<=G) + (2*pi-theta).*(B>G);
 
-I = (R+G+B)/3;
-num = double(min(min(R,G), B));
-den = double(R+G+B);
-S = 1 - 3.*num./den;
+S = 1 - 3./double(R+G+B).*double(min(min(R,G), B));
+I = double((R+G+B)/3);
 hsi = cat(3, H, S, I);
 end
