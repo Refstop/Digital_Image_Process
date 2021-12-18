@@ -1,5 +1,5 @@
 clc; clear all; close all;
-img = imread('data/profile.jpg');
+img = imread('data/pattern.tif');
 % img = imread('rice.png');
 
 % Near Neighbor
@@ -29,15 +29,6 @@ title('0.81','fontsize',16)
 subplot(1,3,3);
 imshow(imgBil143);
 title('1.43','fontsize',16)
-
-% NN Bil Compare
-figure(3)
-subplot(1,2,1);
-imshow(imgNN143(2300:2700, 800:1500, 1:3));
-title('NearNeighbor 1.43','fontsize',16)
-subplot(1,2,2);
-imshow(imgBil143(2300:2700, 800:1500, 1:3));
-title('Bilinear 1.43','fontsize',16)
 
 figure(4)
 subplot(1,2,1);

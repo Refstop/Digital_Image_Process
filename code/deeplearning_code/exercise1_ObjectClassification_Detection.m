@@ -17,7 +17,7 @@ categories(trainingLabels)
 %Display a few of the training images.
 figure
 thumbnails = trainingImages(:,:,:,1:100);
-montage(thumbnails)
+montage(thumbnails); title("Training Images");
 
 % Create the image input layer for 32x32x3 CIFAR-10 images
 [height, width, numChannels, ~] = size(trainingImages);
@@ -124,7 +124,7 @@ w = cifar10Net.Layers(2).Weights;
 w = rescale(w);
 
 figure
-montage(w)
+montage(w); title("weighted Filters");
 
 % Run the network on the test set.
 YTest = classify(cifar10Net, testImages);
@@ -152,7 +152,7 @@ I = imread(stopSigns.imageFilename{1});
 I = insertObjectAnnotation(I,'Rectangle',stopSigns.stopSign{1},'stop sign','LineWidth',8);
 
 figure
-imshow(I)
+imshow(I); title("Stop Sign Detection"); % no confidence
 
 % A trained detector is loaded from disk to save time when running the
 % example. Set this flag to true to train the detector.
@@ -175,7 +175,7 @@ if doTraining
     'NegativeOverlapRange', [0 0.3], 'PositiveOverlapRange',[0.5 1])
 else
     % Load pre-trained network for the example.
-    load('rcnnStopSigns.mat','rcnn')       
+    load('rcnnStopSigns.mat','rcnn')
 end
 
 % Read test image
@@ -194,4 +194,4 @@ annotation = sprintf('%s: (Confidence = %f)', label(idx), score);
 outputImage = insertObjectAnnotation(testImage, 'rectangle', bbox, annotation);
 
 figure
-imshow(outputImage)
+imshow(outputImage); title("Stop Sign Detection"); % with confidence
