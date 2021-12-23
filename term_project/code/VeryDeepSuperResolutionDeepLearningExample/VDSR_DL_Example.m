@@ -1,118 +1,34 @@
 clc;clear all;close all;
 
-%% Downloading Training Data
-imagesDir = tempdir;
-url = 'http://www-i6.informatik.rwth-aachen.de/imageclef/resources/iaprtc12.tgz';
-downloadIAPRTC12Data(url,imagesDir);
-
-trainImagesDir = fullfile(imagesDir,'iaprtc12','images','02');
-exts = {'.jpg','.bmp','.png'};
-pristineImages = imageDatastore(trainImagesDir,'FileExtensions',exts);
-
-numel(pristineImages.Files)
-
-%% Prepare Training Data
-upsampledDirName = [trainImagesDir filesep 'upsampledImages'];
-residualDirName = [trainImagesDir filesep 'residualImages'];
-
-scaleFactors = [2 3 4];
-createVDSRTrainingSet(pristineImages,scaleFactors,upsampledDirName,residualDirName);
-
-%% Define Preprocessing Pipeline for Training Set
-upsampledImages = imageDatastore(upsampledDirName,'FileExtensions','.mat','ReadFcn',@matRead);
-residualImages = imageDatastore(residualDirName,'FileExtensions','.mat','ReadFcn',@matRead);
-
-augmenter = imageDataAugmenter( ...
-    'RandRotation',@()randi([0,1],1)*90, ...
-    'RandXReflection',true);
-
-patchSize = [41 41];
-patchesPerImage = 64;
-dsTrain = randomPatchExtractionDatastore(upsampledImages,residualImages,patchSize, ...
-    "DataAugmentation",augmenter,"PatchesPerImage",patchesPerImage);
-
-%% Set Up VDSR Layers
-networkDepth = 20;
-firstLayer = imageInputLayer([41 41 1],'Name','InputLayer','Normalization','none');
-convLayer = convolution2dLayer(3,64,'Padding',1, ...
-    'WeightsInitializer','he','BiasInitializer','zeros','Name','Conv1');
-relLayer = reluLayer('Name','ReLU1');
-middleLayers = [convLayer relLayer];
-for layerNumber = 2:networkDepth-1
-    convLayer = convolution2dLayer(3,64,'Padding',[1 1], ...
-        'WeightsInitializer','he','BiasInitializer','zeros', ...
-        'Name',['Conv' num2str(layerNumber)]);
-    
-    relLayer = reluLayer('Name',['ReLU' num2str(layerNumber)]);
-    middleLayers = [middleLayers convLayer relLayer];    
-end
-convLayer = convolution2dLayer(3,1,'Padding',[1 1], ...
-    'WeightsInitializer','he','BiasInitializer','zeros', ...
-    'NumChannels',64,'Name',['Conv' num2str(networkDepth)]);
-finalLayers = [convLayer regressionLayer('Name','FinalRegressionLayer')];
-layers = [firstLayer middleLayers finalLayers];
-layers = vdsrLayers;
-
-%% Specify Training Options
-maxEpochs = 100;
-epochIntervals = 1;
-initLearningRate = 0.1;
-learningRateFactor = 0.1;
-l2reg = 0.0001;
-miniBatchSize = 64;
-options = trainingOptions('sgdm', ...
-    'Momentum',0.9, ...
-    'InitialLearnRate',initLearningRate, ...
-    'LearnRateSchedule','piecewise', ...
-    'LearnRateDropPeriod',10, ...
-    'LearnRateDropFactor',learningRateFactor, ...
-    'L2Regularization',l2reg, ...
-    'MaxEpochs',maxEpochs, ...
-    'MiniBatchSize',miniBatchSize, ...
-    'GradientThresholdMethod','l2norm', ...
-    'GradientThreshold',0.01, ...
-    'Plots','training-progress', ...
-    'Verbose',false);
-
-%% Train the Network
-doTraining = false;
-if doTraining
-    net = trainNetwork(dsTrain,layers,options);
-    modelDateTime = string(datetime('now','Format',"yyyy-MM-dd-HH-mm-ss"));
-    save(strcat("trainedVDSR-",modelDateTime,"-Epoch-",num2str(maxEpochs),"-ScaleFactors-234.mat"),'net');
-else
-    load('trainedVDSR-Epoch-100-ScaleFactors-234.mat');
-end
-
 %% Perform Single Image Super-Resolution Using VDSR Network
+net_weight = 'trainedVDSR-Epoch-100-ScaleFactors-234.mat';
+
 %% Create Sample Low-Resolution Image
-exts = {'.jpg','.png'};
-fileNames = {'sherlock.jpg','car2.jpg','fabric.png','greens.jpg','hands1.jpg','kobi.png', ...
-    'lighthouse.png','micromarket.jpg','office_4.jpg','onion.png','pears.png','yellowlily.jpg', ...
-    'indiancorn.jpg','flamingos.jpg','sevilla.jpg','llama.jpg','parkavenue.jpg', ...
-    'peacock.jpg','car1.jpg','strawberries.jpg','wagon.jpg'};
-filePath = [fullfile(matlabroot,'toolbox','images','imdata') filesep];
-filePathNames = strcat(filePath,fileNames);
-testImages = imageDatastore(filePathNames,'FileExtensions',exts);
+baby_small = imread('[크기변환]baby.png'); baby = imread('baby.png');
+bird_small = imread('[크기변환]bird.png'); bird = imread('bird.png');
+butterfly_small = imread('[크기변환]butterfly.png'); butterfly = imread('butterfly.png');
+head_small = imread('[크기변환]head.png'); head = imread('head.png');
+woman_small = imread('[크기변환]woman.png'); woman = imread('woman.png');
 
-montage(testImages)
+[bicubicPSNR(1), vdsrPSNR(1)] = VDSR_prediction(baby, baby_small,net_weight, 'baby');
+[bicubicPSNR(2), vdsrPSNR(2)] = VDSR_prediction(bird, bird_small, net_weight, 'bird');
+[bicubicPSNR(3), vdsrPSNR(3)] = VDSR_prediction(butterfly, butterfly_small, net_weight, 'butterfly');
+[bicubicPSNR(4), vdsrPSNR(4)] = VDSR_prediction(head, head_small, net_weight, 'head');
+[bicubicPSNR(5), vdsrPSNR(5)] = VDSR_prediction(woman, woman_small, net_weight, 'woman');
+fprintf("bicubicPSNR 평균값: %.6f\n", mean(bicubicPSNR));
+fprintf("vdsrPSNR 평균값: %.6f\n", mean(vdsrPSNR));
 
-indx = 1; % Index of image to read from the test image datastore
-Ireference = readimage(testImages,indx);
-Ireference = im2double(Ireference);
-imshow(Ireference)
-title('High-Resolution Reference Image')
 
-scaleFactor = 0.25;
-Ilowres = imresize(Ireference,scaleFactor,'bicubic');
-imshow(Ilowres)
-title('Low-Resolution Image')
+function [bicubicPSNR, vdsrPSNR] = VDSR_prediction(original_img, resized_img, weight_mat, filename)
+load(weight_mat);
+
+Ireference_uint8 = original_img;
+Ireference = im2double(Ireference_uint8);
+
+Ilowres = resized_img;
 
 %% Improve Image Resolution Using Bicubic Interpolation
-[nrows,ncols,np] = size(Ireference);
-Ibicubic = imresize(Ilowres,[nrows ncols],'bicubic');
-imshow(Ibicubic)
-title('High-Resolution Image Obtained Using Bicubic Interpolation')
+Ibicubic = imresize(Ilowres, 4,'bicubic');
 
 %% Improve Image Resolution Using Pretrained VDSR Network
 Iycbcr = rgb2ycbcr(Ilowres);
@@ -120,34 +36,27 @@ Iy = Iycbcr(:,:,1);
 Icb = Iycbcr(:,:,2);
 Icr = Iycbcr(:,:,3);
 
-Iy_bicubic = imresize(Iy,[nrows ncols],'bicubic');
-Icb_bicubic = imresize(Icb,[nrows ncols],'bicubic');
-Icr_bicubic = imresize(Icr,[nrows ncols],'bicubic');
+Iy_bicubic = imresize(Iy,4,'bicubic');
+Icb_bicubic = imresize(Icb,4,'bicubic');
+Icr_bicubic = imresize(Icr,4,'bicubic');
 
 Iresidual = activations(net,Iy_bicubic,41);
 Iresidual = double(Iresidual);
-imshow(Iresidual,[])
-title('Residual Image from VDSR')
 
-Isr = Iy_bicubic + Iresidual;
+Isr = double(Iy_bicubic) + 0.41*Iresidual;
 
 Ivdsr = ycbcr2rgb(cat(3,Isr,Icb_bicubic,Icr_bicubic));
-imshow(Ivdsr)
-title('High-Resolution Image Obtained Using VDSR')
+% fig1 = figure('units','normalized','outerposition',[0 0 1 1]);
+% subplot(231); imshow(Ireference_uint8); title('High-Resolution Reference Image', 'FontSize', 15)
+% subplot(232); imshow(Ibicubic); title('High-Resolution Image Obtained Using Bicubic Interpolation', 'FontSize', 15)
+% subplot(233); imshow(Ivdsr); title('High-Resolution Image Obtained Using VDSR', 'FontSize', 15)
+% subplot(234); imshow(Iresidual,[]); title('Residual Image from VDSR', 'FontSize', 15)
 
 %% Visual and Quantitative Comparison
-roi = [320 30 480 400];
-montage({imcrop(Ibicubic,roi),imcrop(Ivdsr,roi)})
-title('High-Resolution Results Using Bicubic Interpolation (Left) vs. VDSR (Right)');\
-
-bicubicPSNR = psnr(Ibicubic,Ireference)
-vdsrPSNR = psnr(Ivdsr,Ireference)
-
-bicubicSSIM = ssim(Ibicubic,Ireference)
-vdsrSSIM = ssim(Ivdsr,Ireference)
-
-bicubicNIQE = niqe(Ibicubic)
-vdsrNIQE = niqe(Ivdsr)
-
-scaleFactors = [2 3 4];
-superResolutionMetrics(net,testImages,scaleFactors);
+bicubicPSNR = psnr(Ibicubic,Ireference_uint8);
+vdsrPSNR = psnr(Ivdsr,Ireference_uint8);
+% roi = [31 96 187 161];
+% subplot(235); imshow(imcrop(Ibicubic,roi)); title('HR Results Using Bicubic Interpolation, ' + string(bicubicPSNR), 'FontSize', 15)
+% subplot(236); imshow(imcrop(Ivdsr,roi)); title('HR Results Using VDSR, ' + string(vdsrPSNR), 'FontSize', 15);
+% saveas(fig1, filename+"_result.png");
+end
