@@ -46,17 +46,17 @@ Iresidual = double(Iresidual);
 Isr = double(Iy_bicubic) + 0.41*Iresidual;
 
 Ivdsr = ycbcr2rgb(cat(3,Isr,Icb_bicubic,Icr_bicubic));
-% fig1 = figure('units','normalized','outerposition',[0 0 1 1]);
-% subplot(231); imshow(Ireference_uint8); title('High-Resolution Reference Image', 'FontSize', 15)
-% subplot(232); imshow(Ibicubic); title('High-Resolution Image Obtained Using Bicubic Interpolation', 'FontSize', 15)
-% subplot(233); imshow(Ivdsr); title('High-Resolution Image Obtained Using VDSR', 'FontSize', 15)
-% subplot(234); imshow(Iresidual,[]); title('Residual Image from VDSR', 'FontSize', 15)
+fig1 = figure('units','normalized','outerposition',[0 0 1 1]);
+subplot(231); imshow(Ireference_uint8); title('High-Resolution Reference Image', 'FontSize', 15)
+subplot(232); imshow(Ibicubic); title('High-Resolution Image Obtained Using Bicubic Interpolation', 'FontSize', 15)
+subplot(233); imshow(Ivdsr); title('High-Resolution Image Obtained Using VDSR', 'FontSize', 15)
+subplot(234); imshow(Iresidual,[]); title('Residual Image from VDSR', 'FontSize', 15)
 
 %% Visual and Quantitative Comparison
 bicubicPSNR = psnr(Ibicubic,Ireference_uint8);
 vdsrPSNR = psnr(Ivdsr,Ireference_uint8);
-% roi = [31 96 187 161];
-% subplot(235); imshow(imcrop(Ibicubic,roi)); title('HR Results Using Bicubic Interpolation, ' + string(bicubicPSNR), 'FontSize', 15)
-% subplot(236); imshow(imcrop(Ivdsr,roi)); title('HR Results Using VDSR, ' + string(vdsrPSNR), 'FontSize', 15);
-% saveas(fig1, filename+"_result.png");
+roi = [31 96 187 161];
+subplot(235); imshow(imcrop(Ibicubic,roi)); title('HR Results Using Bicubic Interpolation, ' + string(bicubicPSNR), 'FontSize', 15)
+subplot(236); imshow(imcrop(Ivdsr,roi)); title('HR Results Using VDSR, ' + string(vdsrPSNR), 'FontSize', 15);
+saveas(fig1, filename+"_result.png");
 end
